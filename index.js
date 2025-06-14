@@ -56,6 +56,16 @@ async function run() {
     const contactDB = client.db("Bristo_DB").collection("contacts");
     const bookingsDB = client.db("Bristo_DB").collection("bookings");
 
+    //jwt related api
+    app.post("/jwt", async (req, res) => {
+      //const user = req.body;
+      const user = { email: req.body.email };
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "1h",
+      });
+      res.send({ token });
+    });
+
     // middlewares
     const verifyToken = (req, res, next) => {
       const authHeader = req.headers.authorization;
@@ -155,6 +165,14 @@ async function run() {
     });
 
     //reservation related api
+
+    //this api route is when the admin is fetching all the reservations made by all the users
+    app.get("/reservation", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await bookingsDB.find().toArray();
+      res.send(result);
+    });
+
+    //this api route for individual user to see their own bookings
     app.get("/reservation/:email", verifyToken, async (req, res) => {
       const query = { email: req.params.email };
       if (req.params.email !== req.decoded.email) {
@@ -164,16 +182,12 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/reservation", verifyToken, verifyAdmin, async (req, res) => {
-      const result = await bookingsDB.find().toArray();
-      res.send(result);
-    });
-
+    //this api route is when the user is making reservation
     app.post("/reservation", verifyToken, async (req, res) => {
       const item = req.body;
       console.log(item);
       const result = await bookingsDB.insertOne(item);
-
+      // when user books new reservation it sends signal to database that new reservation is made
       if (result.insertedId) {
         console.log("Emitting newReservation ", item);
         io.emit("newReservation", { id: result.insertedId, ...item });
@@ -181,6 +195,7 @@ async function run() {
       res.send(result);
     });
 
+    //this api route is for the admin when he wants to approve or cancel a reservation
     app.patch(
       "/reservation/:id",
       verifyToken,
@@ -193,7 +208,7 @@ async function run() {
           { _id: new ObjectId(id) },
           { $set: { status } }
         );
-
+        // when update happens sends signal to user that updated
         if (result.modifiedCount > 0) {
           //all client gets the update
           io.emit("reservationUpdated", { id, status });
@@ -292,16 +307,6 @@ async function run() {
         paymentResult,
         deleteResult,
       });
-    });
-
-    //jwt related api
-    app.post("/jwt", async (req, res) => {
-      //const user = req.body;
-      const user = { email: req.body.email };
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
-      });
-      res.send({ token });
     });
 
     //user related api
