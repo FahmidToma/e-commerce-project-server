@@ -46,7 +46,7 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    //await client.connect();
+    await client.connect();
 
     const menuDB = client.db("Bristo_DB").collection("menu");
     const reviewsDB = client.db("Bristo_DB").collection("reviews");
@@ -459,6 +459,6 @@ app.get("/", (req, res) => {
   res.send("E commerce server side");
 });
 
-app.listen(port, () => {
-  console.log("Bistro Boss server");
+server.listen(port, () => {
+  console.log("Bistro Boss server with socketio running");
 });
