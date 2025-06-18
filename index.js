@@ -22,16 +22,8 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-//socket.io connection
-io.on("connection", socket => {
-  console.log("A user connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
-  });
-});
-
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { send } = require("process");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.7t9x1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -55,6 +47,50 @@ async function run() {
     const paymentDB = client.db("Bristo_DB").collection("payments");
     const contactDB = client.db("Bristo_DB").collection("contacts");
     const bookingsDB = client.db("Bristo_DB").collection("bookings");
+    const messageDB = client.db("Bristo_DB").collection("messages");
+
+    //socket.io connection
+    io.on("connection", socket => {
+      console.log("A user connected:", socket.id);
+
+      //joining room based on userEmail
+      socket.on("joinRoom", ({ userId }) => {
+        socket.join(userId);
+        console.log(`${userId} joined their personal room`);
+      });
+
+      //Receive user message and send this to admin room
+      socket.on("userMessage", async ({ userId, message }) => {
+        await messageDB.insertOne({
+          userId,
+          sender: "user",
+          message,
+          timestamp: new Date(),
+        });
+        io.to("adminRoom").emit("userMessage", { userId, message });
+      });
+
+      //admin joins adminRoom
+      socket.on("joinAdminRoom", () => {
+        socket.join("adminRoom");
+        console.log("Admin joined adminRoom");
+      });
+
+      //admin replies to a specific user
+      socket.on("adminMessage", async ({ userId, message }) => {
+        await messageDB.insertOne({
+          userId,
+          sender: "admin",
+          message,
+          timestamp: new Date(),
+        });
+        io.to(userId).emit("adminMessage", message);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("User disconnected:", socket.id);
+      });
+    });
 
     //jwt related api
     app.post("/jwt", async (req, res) => {
@@ -96,6 +132,34 @@ async function run() {
       }
       next();
     };
+
+    //chat related api
+    app.get("/messages/:userEmail", verifyToken, async (req, res) => {
+      const userEmail = req.params.userEmail;
+      if (req.user.email !== userEmail) {
+        return res.status(403).json({ message: "Forbidden" });
+      }
+      const messages = await messageDB
+        .find({ userEmail })
+        .sort({ timestamp: 1 })
+        .toArray();
+      res.send(messages);
+    });
+
+    app.get(
+      "/admin/messages/:userEmail",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const userEmail = req.params.userEmail;
+
+        const messages = await messageDB
+          .find({ userEmail })
+          .sort({ timestamp: 1 })
+          .toArray();
+        res.send(messages);
+      }
+    );
 
     // menu related api
     app.get("/menu", async (req, res) => {
