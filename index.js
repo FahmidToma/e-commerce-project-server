@@ -142,7 +142,8 @@ async function run() {
     //chat related api
     app.get("/messages/:userEmail", verifyToken, async (req, res) => {
       const userEmail = req.params.userEmail;
-      if (req.user.email !== userEmail) {
+
+      if (req.decoded.email !== userEmail) {
         return res.status(403).json({ message: "Forbidden" });
       }
       const messages = await messageDB
@@ -160,7 +161,7 @@ async function run() {
         const userEmail = req.params.userEmail;
 
         const messages = await messageDB
-          .find({ userEmail })
+          .find({ userId: userEmail })
           .sort({ timestamp: 1 })
           .toArray();
         res.send(messages);
