@@ -187,7 +187,7 @@ async function run() {
       res.send(result);
     });
 
-    app.patch("/menu/:id", async (req, res) => {
+    app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
       const filter = { _id: id };
