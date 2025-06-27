@@ -170,13 +170,24 @@ async function run() {
 
     // menu related api
     app.get("/menu", async (req, res) => {
+      const docs = await menuDB.find({ _id: { $type: "string" } });
+      for (const doc of docs) {
+        try {
+          await menuDB.updateOne(
+            { _id: doc._id },
+            { $set: { _id: new ObjectId() } }
+          );
+        } catch (error) {
+          console.error("failed to update", error);
+        }
+      }
       const result = await menuDB.find().toArray();
       res.send(result);
     });
 
     app.get("/menu/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: id };
+      const query = { _id: new ObjectId(id) };
       const result = await menuDB.findOne(query);
       res.send(result);
     });
@@ -190,7 +201,7 @@ async function run() {
     app.patch("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
       const id = req.params.id;
-      const filter = { _id: id };
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
           name: item.name,
@@ -207,7 +218,7 @@ async function run() {
     app.delete("/menu/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       console.log(id);
-      const query = { _id: id };
+      const query = { _id: new ObjectId(id) };
       const result = await menuDB.deleteOne(query);
       res.send(result);
     });
