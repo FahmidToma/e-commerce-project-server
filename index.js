@@ -170,17 +170,6 @@ async function run() {
 
     // menu related api
     app.get("/menu", async (req, res) => {
-      const docs = await menuDB.find({ _id: { $type: "string" } });
-      for (const doc of docs) {
-        try {
-          await menuDB.updateOne(
-            { _id: doc._id },
-            { $set: { _id: new ObjectId() } }
-          );
-        } catch (error) {
-          console.error("failed to update", error);
-        }
-      }
       const result = await menuDB.find().toArray();
       res.send(result);
     });
