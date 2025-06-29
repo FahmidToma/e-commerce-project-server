@@ -1,24 +1,14 @@
+require("dotenv").config();
 const express = require("express");
 const http = require("http");
+const cors = require("cors");
+const jwt = require("jsonwebtoken");
 const { Server } = require("socket.io");
 const app = express();
-const server = http.createServer(app);
 
-const io = new Server(server, {
-  cors: {
-    origin: ["https://e-commerce-b784b.web.app"],
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
-    optionsSuccessStatus: 200,
-  },
-});
 //middlewire
 
 app.use(express.json());
-
-const cors = require("cors");
-const jwt = require("jsonwebtoken");
-require("dotenv").config();
 
 app.use(
   cors({
@@ -30,6 +20,17 @@ app.use(
 );
 
 app.options("*", cors());
+
+const server = http.createServer(app);
+
+const io = new Server(server, {
+  cors: {
+    origin: ["https://e-commerce-b784b.web.app"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  },
+});
 
 //You have to require stripe after dotenv.config otherwise key won't be able to load
 //as a result there will be value undefined
@@ -324,17 +325,23 @@ async function run() {
     });
 
     app.post("/create-payment-intent", async (req, res) => {
-      const { price } = req.body;
-      const amount = parseInt(price * 100);
+      try {
+        const { price } = req.body;
+        console.log(price);
+        const amount = parseInt(price * 100);
 
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: amount,
-        currency: "usd",
-        payment_method_types: ["card"],
-      });
-      res.send({
-        clientSecret: paymentIntent.client_secret,
-      });
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: "usd",
+          payment_method_types: ["card"],
+        });
+        res.send({
+          clientSecret: paymentIntent.client_secret,
+        });
+      } catch (error) {
+        console.error("Stripe error:", error);
+        res.status(500).send({ error: "Payment intent failed" });
+      }
     });
 
     app.post("/payments", verifyToken, async (req, res) => {
