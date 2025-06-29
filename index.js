@@ -461,7 +461,7 @@ async function run() {
             {
               $lookup: {
                 from: "menu",
-                localField: "menuIds",
+                localField: "menuObjectId",
                 foreignField: "_id",
                 as: "menuItems",
               },
