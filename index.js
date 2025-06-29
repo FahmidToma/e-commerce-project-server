@@ -3,13 +3,30 @@ const http = require("http");
 const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
+
+app.use(
+  cors({
+    origin: ["https://e-commerce-b784b.web.app"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
+
+app.options("*", cors());
+
 const io = new Server(server, {
   cors: {
     origin: ["https://e-commerce-b784b.web.app"],
-    methods: ["GET", "POST", "PATCH"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
+    optionsSuccessStatus: 200,
   },
 });
+//middlewire
+
+app.use(express.json());
+
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
@@ -18,15 +35,6 @@ require("dotenv").config();
 //as a result there will be value undefined
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
-
-//middlewire
-app.use(
-  cors({
-    origin: ["https://e-commerce-b784b.web.app"],
-    credentials: true,
-  })
-);
-app.use(express.json());
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { send } = require("process");
@@ -138,35 +146,6 @@ async function run() {
       }
       next();
     };
-
-    //chat related api
-    app.get("/messages/:userEmail", verifyToken, async (req, res) => {
-      const userEmail = req.params.userEmail;
-
-      if (req.decoded.email !== userEmail) {
-        return res.status(403).json({ message: "Forbidden" });
-      }
-      const messages = await messageDB
-        .find({ userEmail })
-        .sort({ timestamp: 1 })
-        .toArray();
-      res.send(messages);
-    });
-
-    app.get(
-      "/admin/messages/:userEmail",
-      verifyToken,
-      verifyAdmin,
-      async (req, res) => {
-        const userEmail = req.params.userEmail;
-
-        const messages = await messageDB
-          .find({ userId: userEmail })
-          .sort({ timestamp: 1 })
-          .toArray();
-        res.send(messages);
-      }
-    );
 
     // menu related api
     app.get("/menu", async (req, res) => {
@@ -308,12 +287,9 @@ async function run() {
     app.get("/carts", verifyToken, async (req, res) => {
       console.log("Getting /cart route hit");
       const email = req.query.email;
-      //console.log("email received", email);
       const query = { email: email };
       const result = await cartDB.find(query).toArray();
-      //console.log("Email received", email);
       const result2 = await cartDB.find().toArray();
-      //console.log(result2);
       res.send(result);
     });
 
@@ -349,7 +325,6 @@ async function run() {
 
     app.post("/create-payment-intent", async (req, res) => {
       const { price } = req.body;
-      //as everything is calculated in poisa in stripe
       const amount = parseInt(price * 100);
 
       const paymentIntent = await stripe.paymentIntents.create({
@@ -447,12 +422,6 @@ async function run() {
       const foodItems = await menuDB.estimatedDocumentCount();
       const orders = await paymentDB.estimatedDocumentCount();
 
-      //this is not the best way
-      //const payments = await paymentDB.find().toArray();
-      //const revenue = payments.reduce(
-      //  (total, payment) => total + payment.price,
-      //  0
-      //);
       const result = await paymentDB
         .aggregate([
           {
