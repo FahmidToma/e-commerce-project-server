@@ -4,17 +4,6 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 
-app.use(
-  cors({
-    origin: ["https://e-commerce-b784b.web.app"],
-    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    credentials: true,
-    optionsSuccessStatus: 200,
-  })
-);
-
-app.options("*", cors());
-
 const io = new Server(server, {
   cors: {
     origin: ["https://e-commerce-b784b.web.app"],
@@ -30,6 +19,17 @@ app.use(express.json());
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+
+app.use(
+  cors({
+    origin: ["https://e-commerce-b784b.web.app"],
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
+    optionsSuccessStatus: 200,
+  })
+);
+
+app.options("*", cors());
 
 //You have to require stripe after dotenv.config otherwise key won't be able to load
 //as a result there will be value undefined
