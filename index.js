@@ -476,6 +476,7 @@ async function run() {
             },
           ])
           .toArray();
+        console.log(result);
         res.send(result);
       } catch (error) {
         console.error("Error fetching", error);
@@ -498,5 +499,5 @@ app.get("/", (req, res) => {
 });
 
 server.listen(port, () => {
-  console.log("Bistro Boss server with socketio running");
+  console.log("Al Dente server with socketio running");
 });
