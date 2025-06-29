@@ -447,6 +447,18 @@ async function run() {
               $unwind: "$menuIds",
             },
             {
+              $addFields: {
+                menuObjectId: {
+                  $convert: {
+                    input: "$menuIds",
+                    to: "objectId",
+                    onError: null,
+                    onNull: null,
+                  },
+                },
+              },
+            },
+            {
               $lookup: {
                 from: "menu",
                 localField: "menuIds",
