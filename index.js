@@ -68,40 +68,6 @@ async function run() {
     io.on("connection", socket => {
       console.log("A user connected:", socket.id);
 
-      //joining room based on userEmail
-      socket.on("joinRoom", ({ userId }) => {
-        socket.join(userId);
-        console.log(`${userId} joined their personal room`);
-      });
-
-      //Receive user message and send this to admin room
-      socket.on("userMessage", async ({ userId, message }) => {
-        await messageDB.insertOne({
-          userId,
-          sender: "user",
-          message,
-          timestamp: new Date(),
-        });
-        io.to("adminRoom").emit("userMessage", { userId, message });
-      });
-
-      //admin joins adminRoom
-      socket.on("joinAdminRoom", () => {
-        socket.join("adminRoom");
-        console.log("Admin joined adminRoom");
-      });
-
-      //admin replies to a specific user
-      socket.on("adminMessage", async ({ userId, message }) => {
-        await messageDB.insertOne({
-          userId,
-          sender: "admin",
-          message,
-          timestamp: new Date(),
-        });
-        io.to(userId).emit("adminMessage", message);
-      });
-
       socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);
       });
@@ -286,12 +252,24 @@ async function run() {
 
     //cart related api
     app.get("/carts", verifyToken, async (req, res) => {
-      console.log("Getting /cart route hit");
-      const email = req.query.email;
-      const query = { email: email };
-      const result = await cartDB.find(query).toArray();
-      const result2 = await cartDB.find().toArray();
-      res.send(result);
+      try {
+        console.log("Getting /cart route hit");
+        const email = req.query.email;
+
+        if (!email) {
+          return res
+            .status(400)
+            .send({ message: "Email query parameter is required" });
+        }
+
+        const query = { email: email };
+        const result = await cartDB.find(query).toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching carts:", error);
+        res.status(500).send({ message: "Failed to fetch carts" });
+      }
     });
 
     app.post("/carts", verifyToken, async (req, res) => {
@@ -310,17 +288,21 @@ async function run() {
     //payment related apis
 
     app.get("/payments/:email", verifyToken, async (req, res) => {
-      const query = { email: req.params.email };
-      if (req.params.email !== req.decoded.email) {
-        return res.status(403).send({ message: "forbidden access" });
+      try {
+        const query = { email: req.params.email };
+        if (req.params.email !== req.decoded.email) {
+          return res.status(403).send({ message: "forbidden access" });
+        }
+        const result = await paymentDB.find(query).toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching", error);
+        res.status(500).send({ message: "Failed to fetch payment" });
       }
-      const result = await paymentDB.find(query).toArray();
-      res.send(result);
     });
 
     app.get("/payments", verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentDB.find().toArray();
-      //console.log(result);
       res.send(result);
     });
 
@@ -457,44 +439,48 @@ async function run() {
 
     //using aggregate pipeline
     app.get("/order-stats", verifyToken, verifyAdmin, async (req, res) => {
-      // console.log("Hitting the order stat");
-      const result = await paymentDB
-        .aggregate([
-          {
-            $unwind: "$menuIds",
-          },
-          {
-            $lookup: {
-              from: "menu",
-              localField: "menuIds",
-              foreignField: "_id",
-              as: "menuItems",
+      try {
+        console.log("Hitting the order stat");
+        const result = await paymentDB
+          .aggregate([
+            {
+              $unwind: "$menuIds",
             },
-          },
-          {
-            $unwind: "$menuItems",
-          },
-          {
-            $group: {
-              _id: "$menuItems.category",
-              quantity: {
-                $sum: 1,
+            {
+              $lookup: {
+                from: "menu",
+                localField: "menuIds",
+                foreignField: "_id",
+                as: "menuItems",
               },
-              revenue: { $sum: "$menuItems.price" },
             },
-          },
-          {
-            $project: {
-              _id: 0,
-              category: "$_id",
-              quantity: "$quantity",
-              revenue: "$revenue",
+            {
+              $unwind: "$menuItems",
             },
-          },
-        ])
-        .toArray();
-      //console.log(result);
-      res.send(result);
+            {
+              $group: {
+                _id: "$menuItems.category",
+                quantity: {
+                  $sum: 1,
+                },
+                revenue: { $sum: "$menuItems.price" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                category: "$_id",
+                quantity: "$quantity",
+                revenue: "$revenue",
+              },
+            },
+          ])
+          .toArray();
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching", error);
+        res.status(500).send({ message: "Order stats failed" });
+      }
     });
 
     // Send a ping to confirm a successful connection
