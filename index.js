@@ -284,7 +284,7 @@ async function run() {
     });
 
     //cart related api
-    app.get("/carts/:email", verifyToken, async (req, res) => {
+    app.get("/carts", verifyToken, async (req, res) => {
       console.log("Getting /cart route hit");
       const email = req.query.email;
       const query = { email: email };
